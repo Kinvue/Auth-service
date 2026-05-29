@@ -1,8 +1,13 @@
+import { LoginRequest } from '@kinvue/contracts/dist/gen/auth';
 import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class AppService {
-  getHello(): string {
-    return 'Hello World!';
+  public login (userCredentials : LoginRequest) {
+    return {
+      accessToken: "access",
+      refreshToken: "refresh",
+      user: undefined,
+    }
   }
 }
