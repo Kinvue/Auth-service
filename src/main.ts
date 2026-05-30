@@ -4,7 +4,7 @@ import { Transport } from '@nestjs/microservices';
 import { AUTH_V1_PACKAGE_NAME } from '@kinvue/contracts/dist/gen/auth';
 import { join } from 'path';
 import {AUTH_PROTO_PATH} from "@kinvue/contracts/dist/gen/constants"
-import { Logger, UseInterceptors } from '@nestjs/common';
+import { Logger} from '@nestjs/common';
 import { LoggerInterceptor } from './interseptors/logger.interseptor';
 
 
