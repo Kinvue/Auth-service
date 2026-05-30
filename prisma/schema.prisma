@@ -1,0 +1,65 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model AuthUser {
+  id         String @id @default(uuid()) @db.Uuid
+
+  email      String @unique 
+  passwordHash      String @map("password_hash")
+  role  Role @default(USER)
+  status String 
+ 
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  passwordResetTokens PasswordResetTokens[]
+  refreshSession RefreshSession[]
+  @@map("auth_users")
+}
+model PasswordResetTokens {
+  id         String @id @default(uuid()) @db.Uuid
+
+  userId String      @unique @map("user_id") @db.Uuid
+  user   AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade) 
+
+  tokenHash      String @map("token_hash")
+ 
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  usedAt DateTime @map("used_at")
+
+  @@map("password_rest_tokens")
+}
+model RefreshSession {
+  id         String @id @default(uuid()) @db.Uuid
+
+  userId String      @unique @map("user_id") @db.Uuid
+  user   AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade) 
+
+  refreshTokenHash      String @map("refresh_token_hash")
+  userAgent String @map("user_agent")
+  ipAddress String @unique @map("ip_adress")
+
+ 
+  createdAt DateTime @default(now()) @map("created_at")
+  revokeddAt DateTime @map("revoked_at")
+  expiresAt DateTime @map("expires_at")
+
+  @@map("refresh_sessions")
+}
+enum Role {
+  ADMIN
+  USER
+  @@map("role")
+}
