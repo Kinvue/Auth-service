@@ -2,7 +2,7 @@ import { LoginRequest,RegisterRequest,RefreshRequest,LogoutRequest, UserPayload,
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { hash, hashSync } from 'bcrypt';
+import { hash, hashSync, compare } from 'bcrypt';
 import { AuthRepository } from './auth.repository';
 import { RpcException } from '@nestjs/microservices';
 import { status } from '@grpc/grpc-js';
@@ -18,11 +18,47 @@ export class AuthService {
 
 
 
-    public login (userCredentials : LoginRequest) {
+    public async login (userCredentials : LoginRequest) {
+        const {email, password , clientInfo} = userCredentials;
+        const usersWithThisEmail = await this.authRepository.findByEmail(email);
+        if(!usersWithThisEmail) {
+            throw new RpcException({
+                code: status.INVALID_ARGUMENT,
+                message: "Invalid credentials!"
+            })
+        }
+        const isPasswordValid = await this.comparePasswords(
+            password,
+            usersWithThisEmail.passwordHash
+        );
+        if(!isPasswordValid){
+             throw new RpcException({
+                code: status.INVALID_ARGUMENT,
+                message: "Invalid credentials!"
+            })
+        }
+        const {passwordHash,...userData}=usersWithThisEmail
+        const secretForAccess = this.config.getOrThrow<string>("JWT_ACCESS_SECRET");
+        const secretForRefresh = this.config.getOrThrow<string>("JWT_REFRESH_SECRET");
+        
+        const accessToken = await this.jwtService.signAsync(
+            usersWithThisEmail,
+            { 
+                secret: secretForAccess,
+                expiresIn: '15m',
+            }
+        )
+        const refreshToken = await this.jwtService.signAsync(
+            usersWithThisEmail,
+            { 
+                secret: secretForRefresh,
+                expiresIn: '7d',
+            }
+        )
         return {
-          accessToken: "access",
-          refreshToken: "refresh",
-          user: undefined,
+          accessToken: accessToken,
+          refreshToken: refreshToken,
+          user: userData,
         }
     }
 
@@ -90,6 +126,9 @@ export class AuthService {
 
     private async hashPassword (password : string) {
         return await hash(password, 10)
+    }
+    private async comparePasswords (password : string , hash) : Promise<boolean> {
+        return await compare(password, hash)
     }
 
 
