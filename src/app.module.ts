@@ -10,7 +10,9 @@ import { ConfigModule } from '@nestjs/config';
       isGlobal: true,
       envFilePath: '.env'
     }),
-    AuthModule, PrismaModule, JwtModule
+    AuthModule, 
+    PrismaModule, 
+    JwtModule
   ],
 })
 export class AppModule {}

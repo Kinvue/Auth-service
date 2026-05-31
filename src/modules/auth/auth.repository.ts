@@ -1,5 +1,6 @@
 import { UserPayload } from "@kinvue/contracts/dist/gen/auth";
 import { Injectable } from "@nestjs/common";
+import { AuthUser } from "generated/prisma/client";
 import { PrismaService } from "src/infrastructure/prisma/prisma.service";
 
 
@@ -19,7 +20,12 @@ export class AuthRepository {
             where:{ email }
         });
     }
-
+    public async findByEmail (email: string) : Promise <AuthUser | null>
+    {
+        return await this.prisma.authUser.findUnique({
+            where: {email}
+        })
+    }
     public async createUser (data) {
         return await this.prisma.authUser.create({
             data
