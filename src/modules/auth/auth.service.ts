@@ -1,4 +1,4 @@
-import { LoginRequest,RegisterRequest,RefreshRequest,LogoutRequest, UserPayload, AuthResponse } from '@kinvue/contracts/dist/gen/auth';
+import { LoginRequest,RegisterRequest,RefreshRequest,LogoutRequest, AuthResponse , UserPayload , Role as ProtoRole } from '@kinvue/contracts/dist/gen/auth';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -6,7 +6,7 @@ import { hash, compare } from 'bcrypt';
 import { AuthRepository } from './auth.repository';
 import { RpcException } from '@nestjs/microservices';
 import { status } from '@grpc/grpc-js';
-
+import { Role as PrismaRole } from 'generated/prisma/enums';
 type Payload = {
     userId: string,
     authUserId: string;
@@ -52,7 +52,7 @@ export class AuthService {
         const userData : UserPayload = {
             id : currentUser.id,
             email : currentUser.email,
-            role : currentUser.role,
+            role : this.mapRoleToProtoRole(currentUser.role), 
             status : currentUser.status
         } 
         const secretForAccess = this.config.getOrThrow<string>("JWT_ACCESS_SECRET");
@@ -68,7 +68,7 @@ export class AuthService {
         }
     }
 
-    public async register(userCredentials : RegisterRequest) {
+    public async register(userCredentials : RegisterRequest) :  Promise<AuthResponse>{
         const {email, password , clientInfo} = userCredentials;
 
         //перевір чи є такий емейл
@@ -89,12 +89,16 @@ export class AuthService {
             passwordHash: hash,
         }
         const user = await this.authRepository.createUser(newUserData)
-        
+        const userData : UserPayload = {
+            id : user.id,
+            email : user.email,
+            role : this.mapRoleToProtoRole(user.role), 
+            status : user.status
+        } 
         const payLoad = {
             userId : "550e8400-e29b-41d4-a716-446655440000",
             authUserId : user.id
         };
-        const {passwordHash, ...userData} = user;
         //генеруємо токени
         const secretForAccess = this.config.getOrThrow<string>("JWT_ACCESS_SECRET");
         const secretForRefresh = this.config.getOrThrow<string>("JWT_REFRESH_SECRET");
@@ -140,6 +144,16 @@ export class AuthService {
             }
         )
     }
+    private mapRoleToProtoRole(role: PrismaRole): ProtoRole {
+    switch (role) {
+        case PrismaRole.ADMIN:
+            return ProtoRole.ADMIN;
 
+        case PrismaRole.USER:
+            return ProtoRole.USER;
 
+        default:
+            return ProtoRole.UNRECOGNIZED;
+  }
+}
 }
