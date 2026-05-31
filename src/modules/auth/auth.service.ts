@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { hash, hashSync } from 'bcrypt';
 import { AuthRepository } from './auth.repository';
+import { RpcException } from '@nestjs/microservices';
+import { status } from '@grpc/grpc-js';
 
 @Injectable()
 export class AuthService {
@@ -25,25 +27,28 @@ export class AuthService {
     }
 
     public async register(userCredentials : RegisterRequest) {
-        const {email, password, name} = userCredentials;
+        const {email, password , clientInfo} = userCredentials;
 
         //перевір чи є такий емейл
         const usersWithThisEmail = await this.authRepository.checkEmailCount(email);
-        if(!usersWithThisEmail) {
-
+        if(usersWithThisEmail) {
+            throw new RpcException({
+                code: status.ALREADY_EXISTS,
+                message: "User with this credentials already exists"
+            })
         }
 
-
         //хешуєш пароль
-        const passwordHash = this.hashPassword(password);
-
+        const hash = await this.hashPassword(password);
 
         //створюєш юзера
         const newUserData = {
-            email,
-            passwordHash,
-            name
+            email: email,
+            passwordHash: hash,
         }
+        const user = await this.authRepository.createUser(newUserData)
+        const {passwordHash,...userData}=user
+
 
         //генеруємо токени
         const secretForAccess = this.config.getOrThrow<string>("JWT_ACCESS_SECRET");
@@ -67,14 +72,10 @@ export class AuthService {
 
         //повертаємо відповідь
         return {
-            accessToken: "kjdhsfgosidkuisdfu",
-            refreshToken: "dkfjhgsidfgfghdfj",
-            user: {
-                id: "6166a544-1a9e-4974-a192-4c1900475d72",
-                email : "illyaklusniggerus@gmail.com",
-                name: "ehdgf"
-            }
-        } as AuthResponse
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            user: userData
+        } 
     }
 
     
