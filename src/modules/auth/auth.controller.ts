@@ -1,6 +1,6 @@
 import { Controller, Logger } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { AuthResponse, LoginRequest, RegisterRequest } from '@kinvue/contracts/dist/gen/auth';
+import { AuthResponse, LoginRequest, RefreshRequest, RegisterRequest } from '@kinvue/contracts/dist/gen/auth';
 import { AUTH_SERVICE_NAME } from '@kinvue/contracts/dist/gen/constants';
 import { GrpcMethod } from '@nestjs/microservices';
 
@@ -11,7 +11,7 @@ export class AuthController {
     ) {}
 
   @GrpcMethod(AUTH_SERVICE_NAME, 'Login')
-  public login (userCredentials : LoginRequest) : AuthResponse {
+  public async login (userCredentials : LoginRequest) : Promise<AuthResponse> {
     return this.authService.login(userCredentials);
   }
 
@@ -19,5 +19,8 @@ export class AuthController {
   public async Register (userCredentials : RegisterRequest) : Promise<AuthResponse> {
     return await this.authService.register(userCredentials);
   }
-
+  @GrpcMethod(AUTH_SERVICE_NAME, 'Refersh')
+  public async Refresh (userCredentials : RefreshRequest) : Promise<AuthResponse> {
+    return await this.authService.refresh(userCredentials);
+  }
 }

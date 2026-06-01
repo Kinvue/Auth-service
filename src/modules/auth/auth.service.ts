@@ -1,4 +1,4 @@
-import { LoginRequest,RegisterRequest,RefreshRequest,LogoutRequest, AuthResponse , UserPayload , Role as ProtoRole } from '@kinvue/contracts/dist/gen/auth';
+import { LoginRequest,RegisterRequest,RefreshRequest,LogoutRequest, AuthResponse , UserPayload } from '@kinvue/contracts/dist/gen/auth';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -6,11 +6,9 @@ import { hash, compare } from 'bcrypt';
 import { AuthRepository } from './auth.repository';
 import { RpcException } from '@nestjs/microservices';
 import { status } from '@grpc/grpc-js';
-import { Role as PrismaRole } from 'generated/prisma/enums';
-type Payload = {
-    userId: string,
-    authUserId: string;
-}
+
+
+
 
 @Injectable()
 export class AuthService {
@@ -18,9 +16,8 @@ export class AuthService {
         private readonly jwtService : JwtService,
         private readonly config : ConfigService,
         private readonly authRepository : AuthRepository,
+        //private readonly userService : UserService
     ){}
-
-
 
     public async login (userCredentials : LoginRequest) : Promise<AuthResponse> {
         const {email, password } = userCredentials;
@@ -44,22 +41,17 @@ export class AuthService {
         }
 
         //отримати юзера з USER service
-
-        const payLoad = {
-            userId : "550e8400-e29b-41d4-a716-446655440000",
-            authUserId : currentUser.id
-        };
         const userData : UserPayload = {
             id : currentUser.id,
             email : currentUser.email,
-            role : this.mapRoleToProtoRole(currentUser.role), 
+            role : currentUser.role, 
             status : currentUser.status
         } 
         const secretForAccess = this.config.getOrThrow<string>("JWT_ACCESS_SECRET");
         const secretForRefresh = this.config.getOrThrow<string>("JWT_REFRESH_SECRET");
         
-        const refreshToken = await this.generateToken(payLoad, secretForRefresh, "30d");
-        const accessToken = await this.generateToken(payLoad, secretForAccess, "15m");
+        const refreshToken = await this.generateToken(userData, secretForRefresh, "30d");
+        const accessToken = await this.generateToken(userData, secretForAccess, "15m");
 
         return {
           accessToken: accessToken,
@@ -67,7 +59,6 @@ export class AuthService {
           user: userData,
         }
     }
-
     public async register(userCredentials : RegisterRequest) :  Promise<AuthResponse>{
         const {email, password , clientInfo} = userCredentials;
 
@@ -89,22 +80,25 @@ export class AuthService {
             passwordHash: hash,
         }
         const user = await this.authRepository.createUser(newUserData)
+        //Створити юзера в USER
+        //this.userService.createProfile({
+        //  username: name,
+        //  ?,?,?
+        //})
+
+
+        //генеруємо токени
         const userData : UserPayload = {
             id : user.id,
             email : user.email,
-            role : this.mapRoleToProtoRole(user.role), 
+            role : user.role, 
             status : user.status
         } 
-        const payLoad = {
-            userId : "550e8400-e29b-41d4-a716-446655440000",
-            authUserId : user.id
-        };
-        //генеруємо токени
         const secretForAccess = this.config.getOrThrow<string>("JWT_ACCESS_SECRET");
         const secretForRefresh = this.config.getOrThrow<string>("JWT_REFRESH_SECRET");
 
-        const refreshToken = await this.generateToken(payLoad, secretForRefresh, "30d");
-        const accessToken = await this.generateToken(payLoad, secretForAccess, "15m");
+        const refreshToken = await this.generateToken(userData, secretForRefresh, "30d");
+        const accessToken = await this.generateToken(userData, secretForAccess, "15m");
 
         //повертаємо відповідь
         return {
@@ -115,19 +109,19 @@ export class AuthService {
     }
 
     
-    public refresh (userCredentials : RefreshRequest) {
-        const {refreshToken , clientInfo} = userCredentials;
 
-        return{
-            accessToken: "access",
-            refreshToken: "refresh",
-        }
-    }
     public async logout(userCredentials : LogoutRequest) {
         return 
     }
 
-
+    public async refresh(dto: RefreshRequest) {
+  
+      return {
+        accessToken: "sdiufgsoid",
+        refreshToken : "sdiufgsoid",
+        user: undefined
+      };
+}
 
     private async hashPassword (password : string) {
         return await hash(password, 10)
@@ -135,7 +129,15 @@ export class AuthService {
     private async comparePasswords (password : string , hash: string) : Promise<boolean> {
         return await compare(password, hash)
     }
-    private async generateToken (payload: Payload, secret: string, expiresIn) {
+    private async verifyToken (tocken: string, secret: string) {
+        return await this.jwtService.verifyAsync<UserPayload>(
+            tocken,
+            { 
+                secret
+            }
+        )
+    }
+    private async generateToken (payload: UserPayload, secret: string, expiresIn) {
         return await this.jwtService.signAsync(
             payload,
             { 
@@ -144,16 +146,4 @@ export class AuthService {
             }
         )
     }
-    private mapRoleToProtoRole(role: PrismaRole): ProtoRole {
-    switch (role) {
-        case PrismaRole.ADMIN:
-            return ProtoRole.ADMIN;
-
-        case PrismaRole.USER:
-            return ProtoRole.USER;
-
-        default:
-            return ProtoRole.UNRECOGNIZED;
-  }
-}
 }
