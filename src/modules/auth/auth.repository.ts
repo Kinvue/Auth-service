@@ -17,7 +17,11 @@ export class AuthRepository {
       where: { email },
     });
   }
-
+  public async findById(id: string): Promise<AuthUser | null> {
+    return await this.prisma.authUser.findUnique({
+      where: { id },
+    });
+  }
   public async createUser(data: Prisma.AuthUserCreateInput): Promise<AuthUser> {
     return await this.prisma.authUser.create({
       data,
