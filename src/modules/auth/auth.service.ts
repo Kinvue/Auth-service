@@ -56,12 +56,14 @@ export class AuthService {
       });
     }
 
-    const {id} = await this.userService.getProfileByAuthUserId(currentUser.id)
+    const { id } = await this.userService.getProfileByAuthUserId(
+      currentUser.id,
+    );
 
     return this.issueTokens(currentUser, id);
   }
 
-  public async register(userCredentials: RegisterRequest): Promise<AuthResponse> {
+  public async register( userCredentials: RegisterRequest,): Promise<AuthResponse> {
     const { email, password, clientInfo } = userCredentials;
 
     if (!clientInfo?.name?.trim()) {
@@ -88,7 +90,9 @@ export class AuthService {
         'ACTIVE',
       );
 
-      const {id} = await this.userService.getProfileByAuthUserId(activatedUser.id)
+      const { id } = await this.userService.getProfileByAuthUserId(
+        activatedUser.id,
+      );
       return this.issueTokens(activatedUser, id);
     }
 
@@ -118,17 +122,61 @@ export class AuthService {
     return;
   }
 
-  public async refresh(dto: RefreshRequest) {
-    return {
-      accessToken: 'sdiufgsoid',
-      refreshToken: 'sdiufgsoid',
-      user: undefined,
+  public async refresh(dto: RefreshRequest): Promise<AuthResponse> {
+    const { refreshToken } = dto;
+
+    if (!refreshToken) {
+      throw new RpcException({
+        code: status.UNAUTHENTICATED,
+        message: 'Refresh token is missing',
+      });
+    }
+
+    const refreshSecret = this.config.getOrThrow<string>('JWT_REFRESH_SECRET');
+
+    let payload: UserPayload;
+
+    try {
+      payload = await this.jwtService.verifyAsync<UserPayload>(refreshToken, {
+        secret: refreshSecret,
+      });
+    } catch {
+      throw new RpcException({
+        code: status.UNAUTHENTICATED,
+        message: 'Invalid or expired refresh token',
+      });
+    }
+
+    const currentUser = await this.authRepository.findById(payload.authId);
+
+    if (!currentUser) {
+      throw new RpcException({
+        code: status.UNAUTHENTICATED,
+        message: 'User not found',
+      });
+    }
+
+    if (currentUser.status !== 'ACTIVE') {
+      throw new RpcException({
+        code: status.PERMISSION_DENIED,
+        message: 'User is not active',
+      });
+    }
+
+    const userData: UserPayload = {
+      userId: payload.userId,
+      authId: currentUser.id,
+      email:  currentUser.email,
+      role: currentUser.role,
+      status: currentUser.status,
     };
+
+    return this.issueTokens(userData,payload.userId);
   }
 
-  private async issueTokens(user, userId : string): Promise<AuthResponse> {
+  private async issueTokens(user, userId: string): Promise<AuthResponse> {
     const userData: UserPayload = {
-      authId: user.id,
+      authId: user.id, 
       userId,
       email: user.email,
       role: user.role,
@@ -136,10 +184,19 @@ export class AuthService {
     };
 
     const secretForAccess = this.config.getOrThrow<string>('JWT_ACCESS_SECRET');
-    const secretForRefresh = this.config.getOrThrow<string>('JWT_REFRESH_SECRET');
+    const secretForRefresh =
+      this.config.getOrThrow<string>('JWT_REFRESH_SECRET');
 
-    const refreshToken = await this.generateToken(userData, secretForRefresh, '30d');
-    const accessToken = await this.generateToken(userData, secretForAccess, '15m');
+    const refreshToken = await this.generateToken(
+      userData,
+      secretForRefresh,
+      '30d',
+    );
+    const accessToken = await this.generateToken(
+      userData,
+      secretForAccess,
+      '15m',
+    );
 
     return {
       accessToken,
@@ -152,14 +209,11 @@ export class AuthService {
     return await hash(password, 10);
   }
 
-  private async comparePasswords(password: string, hash: string): Promise<boolean> {
+  private async comparePasswords(
+    password: string,
+    hash: string,
+  ): Promise<boolean> {
     return await compare(password, hash);
-  }
-
-  private async verifyToken(tocken: string, secret: string) {
-    return await this.jwtService.verifyAsync<UserPayload>(tocken, {
-      secret,
-    });
   }
 
   private async generateToken(payload: UserPayload, secret: string, expiresIn) {
