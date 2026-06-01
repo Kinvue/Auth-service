@@ -70,16 +70,13 @@ export class AuthService {
         message: 'Name value must not be undefined',
       });
     }
-
     const existingUser = await this.authRepository.findByEmail(email);
-
     if (existingUser?.status === 'ACTIVE') {
       throw new RpcException({
         code: status.ALREADY_EXISTS,
         message: 'User with this credentials already exists',
       });
     }
-
     if (existingUser?.status === 'PENDING') {
       await this.userService.createProfile({
         authUserId: existingUser.id,
@@ -96,7 +93,6 @@ export class AuthService {
     }
 
     const hash = await this.hashPassword(password);
-
     const newUserData = {
       email: email,
       passwordHash: hash,
