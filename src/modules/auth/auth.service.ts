@@ -6,6 +6,7 @@ import { hash, compare } from 'bcrypt';
 import { AuthRepository } from './auth.repository';
 import { RpcException } from '@nestjs/microservices';
 import { status } from '@grpc/grpc-js';
+import { UserService } from '../user/user.service';
 
 
 
@@ -16,7 +17,7 @@ export class AuthService {
         private readonly jwtService : JwtService,
         private readonly config : ConfigService,
         private readonly authRepository : AuthRepository,
-        //private readonly userService : UserService
+        private readonly userService : UserService
     ){}
 
     public async login (userCredentials : LoginRequest) : Promise<AuthResponse> {
@@ -59,8 +60,17 @@ export class AuthService {
           user: userData,
         }
     }
+
+
     public async register(userCredentials : RegisterRequest) :  Promise<AuthResponse>{
         const {email, password , clientInfo} = userCredentials;
+
+        if (!clientInfo?.name) {
+            throw new RpcException({
+                code: status.INVALID_ARGUMENT,
+                message: "Name value must not be undefined"
+            })
+        }
 
         //перевір чи є такий емейл
         const usersWithThisEmail = await this.authRepository.checkEmailCount(email);
@@ -80,11 +90,11 @@ export class AuthService {
             passwordHash: hash,
         }
         const user = await this.authRepository.createUser(newUserData)
-        //Створити юзера в USER
-        //this.userService.createProfile({
-        //  username: name,
-        //  ?,?,?
-        //})
+
+        await this.userService.createProfile({
+            authUserId: user.id,
+            username: clientInfo.name
+        })
 
 
         //генеруємо токени
@@ -109,7 +119,6 @@ export class AuthService {
     }
 
     
-
     public async logout(userCredentials : LogoutRequest) {
         return 
     }
