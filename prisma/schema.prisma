@@ -3,8 +3,8 @@
 
 // Get a free hosted Postgres database in seconds: `npx create-db`
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
   moduleFormat = "cjs"
 }
 
@@ -18,8 +18,8 @@ model AuthUser {
   email        String @unique @db.VarChar(320)
   passwordHash String @map("password_hash") @db.Text
 
-  role   Role   @default(USER)
-  status String @default("active") @db.VarChar(32)
+  role   Role           @default(USER)
+  status AuthUserStatus @default(PENDING)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -78,4 +78,10 @@ enum Role {
   USER
 
   @@map("role")
+}
+
+enum AuthUserStatus {
+  PENDING
+  ACTIVE
+  BLOCKED
 }
