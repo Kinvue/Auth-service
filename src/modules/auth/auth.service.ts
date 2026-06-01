@@ -56,7 +56,9 @@ export class AuthService {
       });
     }
 
-    return this.issueTokens(currentUser);
+    const {id} = await this.userService.getProfileByAuthUserId(currentUser.id)
+
+    return this.issueTokens(currentUser, id);
   }
 
   public async register(userCredentials: RegisterRequest): Promise<AuthResponse> {
@@ -89,7 +91,8 @@ export class AuthService {
         'ACTIVE',
       );
 
-      return this.issueTokens(activatedUser);
+      const {id} = await this.userService.getProfileByAuthUserId(activatedUser.id)
+      return this.issueTokens(activatedUser, id);
     }
 
     const hash = await this.hashPassword(password);
@@ -112,7 +115,7 @@ export class AuthService {
       'ACTIVE',
     );
 
-    return this.issueTokens(activatedUser);
+    return this.issueTokens(activatedUser, user.id);
   }
 
   public async logout(userCredentials: LogoutRequest) {
@@ -127,9 +130,10 @@ export class AuthService {
     };
   }
 
-  private async issueTokens(user): Promise<AuthResponse> {
+  private async issueTokens(user, userId : string): Promise<AuthResponse> {
     const userData: UserPayload = {
-      id: user.id,
+      authId: user.id,
+      userId,
       email: user.email,
       role: user.role,
       status: user.status,

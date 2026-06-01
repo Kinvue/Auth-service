@@ -27,4 +27,9 @@ export class UserService implements OnModuleInit {
       this.userClient.createProfile(data)
     );
   }
+
+  public async getProfileByAuthUserId(authUserId: string) {
+    return await firstValueFrom(this.userClient.getProfileByAuthUserId({ authUserId }));
+  }
+
 }
